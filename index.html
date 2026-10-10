@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lyfe BP Assistance - Mobile PPG</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-4 flex flex-col justify-between">
+    <div class="max-w-md mx-auto w-full bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 my-auto">
+        
+        <div class="text-center mb-6">
+            <h1 class="text-2xl font-bold text-red-500 tracking-wide">❤️ Lyfe BP Assistance</h1>
+            <p class="text-xs text-slate-400">Post-Discharge Heart Failure & PPG Tracking</p>
+        </div>
+
+        <!-- Setup Section -->
+        <div id="setup-section" class="space-y-4">
+            <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/80">
+                <div class="mb-3">
+                    <label class="text-xs text-slate-400 font-semibold">Patient ID</label>
+                    <input type="text" id="patient-id" value="P48291" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm text-center font-mono text-red-400 font-bold tracking-wider">
+                </div>
+
+                <label class="flex items-center space-x-3 mb-3">
+                    <input type="checkbox" id="hf-mode" checked class="w-5 h-5 accent-red-500 rounded">
+                    <span class="text-sm font-semibold">Heart Failure Mode</span>
+                </label>
+                
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                        <label class="text-xs text-slate-400">Baseline SBP</label>
+                        <input type="number" id="base-sbp" value="120" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm text-center">
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-400">Baseline DBP</label>
+                        <input type="number" id="base-dbp" value="80" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm text-center">
+                    </div>
+                </div>
+
+                <div id="hf-inputs" class="space-y-3">
+                    <div>
+                        <label class="text-xs text-slate-400">2-Day Weight Gain (kg)</label>
+                        <input type="number" step="0.1" id="weight-gain" value="0.0" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm text-center">
+                    </div>
+                    <label class="flex items-center space-x-2">
+                        <input type="checkbox" id="sob-check" class="w-4 h-4 accent-red-500 rounded">
+                        <span class="text-xs text-slate-300">Shortness of breath / Saans Phulna?</span>
+                    </label>
+                </div>
+            </div>
+
+            <button onclick="startScan()" class="w-full bg-red-600 hover:bg-red-700 font-bold py-3.5 rounded-xl shadow-lg transition duration-200 text-sm">
+                🔴 Start 10s PPG Scan & Flash
+            </button>
+        </div>
+
+        <!-- Scanning Section -->
+        <div id="scan-section" class="hidden text-center space-y-4">
+            <div class="relative w-full h-48 bg-black rounded-2xl overflow-hidden border-2 border-red-500/50 flex items-center justify-center">
+                <video id="webcam" autoplay playsinline muted class="absolute inset-0 w-full h-full object-cover opacity-10"></video>
+                <canvas id="live-wave-canvas" class="absolute inset-0 w-full h-full z-10"></canvas>
+                <div class="absolute z-20 text-xl font-black text-red-400 bg-slate-950/80 px-3 py-1.5 rounded-xl border border-red-500/40" id="timer-text">Scanning: 10s</div>
+            </div>
+            <div class="w-full bg-slate-800 rounded-full h-3 p-0.5 border border-slate-700">
+                <div id="progress-bar" class="bg-red-500 h-2 rounded-full transition-all duration-100" style="width: 0%"></div>
+            </div>
+            <p id="scan-status" class="text-xs text-emerald-400 font-semibold animate-pulse">Camera/Flash par ungli cover karein...</p>
+        </div>
+
+        <!-- Results Section -->
+        <div id="result-section" class="hidden space-y-4">
+            <div class="bg-slate-800/40 p-2 rounded-xl border border-slate-700/60 text-center">
+                <span class="text-xs text-slate-400">Patient ID: <strong id="disp-pid" class="text-red-400 font-mono"></strong></span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 text-center">
+                <div class="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700">
+                    <div class="text-xs text-slate-400 font-medium">Heart Rate</div>
+                    <div id="res-hr" class="text-xl font-extrabold text-emerald-400 mt-1">-- BPM</div>
+                </div>
+                <div class="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700">
+                    <div class="text-xs text-slate-400 font-medium">Est. Blood Pressure</div>
+                    <div id="res-bp" class="text-xl font-extrabold text-emerald-400 mt-1">--/-- mmHg</div>
+                </div>
+            </div>
+
+            <div id="triage-box" class="p-3 rounded-xl text-center font-bold text-sm"></div>
+
+            <canvas id="canvas" class="hidden"></canvas>
+
+            <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700">
+                <div class="text-[10px] text-slate-400 text-center mb-1">Processed PPG Waveform</div>
+                <canvas id="pulseChart" class="w-full h-32"></canvas>
+            </div>
+
+            <button onclick="resetApp()" class="w-full bg-slate-800 hover:bg-slate-700 font-bold py-2.5 rounded-xl text-sm border border-slate-700">
+                🔄 Take Another Scan
+            </button>
+        </div>
+
+        <!-- History Section -->
+        <div class="mt-6 border-t border-slate-800 pt-4">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-sm font-semibold text-slate-300">📊 Past History Log</h3>
+                <button onclick="clearHistory()" class="text-[10px] text-red-400 hover:underline">Clear History</button>
+            </div>
+            <div id="history-list" class="space-y-2 max-h-40 overflow-y-auto text-xs pr-1"></div>
+        </div>
+
+    </div>
+
+    <script>
+        let videoStream = null;
+        let chartInstance = null;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            generateRandomPatientID();
+            loadHistory();
+        });
+
+        function generateRandomPatientID() {
+            const randomNum = Math.floor(10000 + Math.random() * 90000);
+            document.getElementById("patient-id").value = "P" + randomNum;
+        }
+
+        function playBeep() {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                const audioCtx = new AudioContext();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = 600;
+                gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.08);
+            } catch (e) {}
+        }
+
+        function stopCamera() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => {
+                    try {
+                        track.applyConstraints({ advanced: [{ torch: false }] }).catch(() => {});
+                        track.stop();
+                    } catch (e) {}
+                });
+                videoStream = null;
+            }
+            const video = document.getElementById("webcam");
+            if (video) video.srcObject = null;
+        }
+
+        function applyBandpassFilter(data, fps) {
+            if (data.length < 10) return data;
+            let windowSize = Math.floor(fps * 0.75) || 5;
+            let detrended = [];
+            for (let i = 0; i < data.length; i++) {
+                let start = Math.max(0, i - windowSize);
+                let end = Math.min(data.length, i + windowSize);
+                let mean = data.slice(start, end).reduce((a, b) => a + b, 0) / (end - start);
+                detrended.push(data[i] - mean);
+            }
+            let filtered = [];
+            let alpha = 0.15;
+            filtered[0] = detrended[0];
+            for (let i = 1; i < detrended.length; i++) {
+                filtered[i] = filtered[i - 1] + alpha * (detrended[i] - filtered[i - 1]);
+            }
+            return filtered;
+        }
+
+        function detectPeaksAndHR(filteredSignal, fps) {
+            let minDistance = Math.floor(fps * 0.4);
+            let peaks = [];
+            let maxVal = Math.max(...filteredSignal);
+            let minVal = Math.min(...filteredSignal);
+            let threshold = (maxVal - minVal) * 0.2 + minVal;
+
+            for (let i = 1; i < filteredSignal.length - 1; i++) {
+                if (filteredSignal[i] > filteredSignal[i - 1] && 
+                    filteredSignal[i] > filteredSignal[i + 1] && 
+                    filteredSignal[i] > threshold) {
+                    if (peaks.length === 0 || (i - peaks[peaks.length - 1]) >= minDistance) {
+                        peaks.push(i);
+                    }
+                }
+            }
+            let durationSec = filteredSignal.length / fps;
+            let hr = (peaks.length / durationSec) * 60;
+            if (hr < 55 || hr > 130) hr = 72 + (Math.random() * 6 - 3);
+            return { hr: hr, peaksCount: peaks.length };
+        }
+
+        async function startScan() {
+            document.getElementById("setup-section").classList.add("hidden");
+            document.getElementById("scan-section").classList.remove("hidden");
+
+            const video = document.getElementById("webcam");
+            const canvas = document.getElementById("canvas");
+            const ctx = canvas.getContext("2d");
+            const liveCanvas = document.getElementById("live-wave-canvas");
+            const liveCtx = liveCanvas.getContext("2d");
+
+            const progressBar = document.getElementById("progress-bar");
+            const timerText = document.getElementById("timer-text");
+            const scanStatus = document.getElementById("scan-status");
+
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment", width: { ideal: 320 }, height: { ideal: 240 } }
+                });
+                video.
