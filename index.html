@@ -59,14 +59,14 @@
         <!-- Scanning Section -->
         <div id="scan-section" class="hidden text-center space-y-4">
             <div class="relative w-full h-48 bg-black rounded-2xl overflow-hidden border-2 border-red-500/50 flex items-center justify-center">
-                <video id="webcam" autoplay playsinline muted class="absolute inset-0 w-full h-full object-cover opacity-10"></video>
+                <video id="webcam" autoplay playsinline muted class="absolute inset-0 w-full h-full object-cover opacity-20"></video>
                 <canvas id="live-wave-canvas" class="absolute inset-0 w-full h-full z-10"></canvas>
                 <div class="absolute z-20 text-xl font-black text-red-400 bg-slate-950/80 px-3 py-1.5 rounded-xl border border-red-500/40" id="timer-text">Scanning: 10s</div>
             </div>
             <div class="w-full bg-slate-800 rounded-full h-3 p-0.5 border border-slate-700">
                 <div id="progress-bar" class="bg-red-500 h-2 rounded-full transition-all duration-100" style="width: 0%"></div>
             </div>
-            <p id="scan-status" class="text-xs text-emerald-400 font-semibold animate-pulse">Camera/Flash par ungli cover karein...</p>
+            <p id="scan-status" class="text-xs text-emerald-400 font-semibold animate-pulse">Checking Finger Presence...</p>
         </div>
 
         <!-- Results Section -->
@@ -114,6 +114,7 @@
     <script>
         let videoStream = null;
         let chartInstance = null;
+        let scanInterval = null;
 
         document.addEventListener("DOMContentLoaded", () => {
             generateRandomPatientID();
@@ -142,6 +143,10 @@
         }
 
         function stopCamera() {
+            if (scanInterval) {
+                clearInterval(scanInterval);
+                scanInterval = null;
+            }
             if (videoStream) {
                 videoStream.getTracks().forEach(track => {
                     try {
@@ -211,7 +216,254 @@
             const scanStatus = document.getElementById("scan-status");
 
             try {
-                videoStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "environment", width: { ideal: 320 }, height: { ideal: 240 } }
-                });
-                video.
+                let constraints = { video: { facingMode: { ideal: "environment" } } };
+                try {
+                    videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+                } catch(e) {
+                    videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                }
+
+                video.srcObject = videoStream;
+                await video.play();
+
+                const track = videoStream.getVideoTracks()[0];
+                if (track) {
+                    const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+                    if (capabilities.torch) {
+                        await track.applyConstraints({ advanced: [{ torch: true }] }).catch(() => {});
+                    }
+                }
+
+                let rawSignals = [];
+                let startTime = Date.now();
+                let duration = 10000; // 10 seconds
+                let lastBeepSec = 10;
+                let frameCount = 0;
+                let validFingerFrames = 0;
+
+                scanInterval = setInterval(() => {
+                    let elapsed = Date.now() - startTime;
+                    let remainingSec = Math.ceil((duration - elapsed) / 1000);
+                    let progress = Math.min((elapsed / duration) * 100, 100);
+                    
+                    progressBar.style.width = progress + "%";
+                    timerText.innerText = `Scanning: ${Math.max(remainingSec, 0)}s`;
+
+                    if (remainingSec < lastBeepSec && remainingSec >= 0) {
+                        playBeep();
+                        lastBeepSec = remainingSec;
+                    }
+
+                    if (elapsed < duration) {
+                        canvas.width = 160;
+                        canvas.height = 120;
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        
+                        let frameData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        let data = frameData.data;
+                        let redSum = 0, greenSum = 0, blueSum = 0;
+                        
+                        for (let i = 0; i < data.length; i += 4) {
+                            redSum += data[i];
+                            greenSum += data[i+1];
+                            blueSum += data[i+2];
+                        }
+                        let pixelCount = data.length / 4;
+                        let avgRed = redSum / pixelCount;
+                        let avgGreen = greenSum / pixelCount;
+                        let avgBlue = blueSum / pixelCount;
+
+                        // Adjusted condition: Flash on hone par red high hota hai lekin green/blue se significantly zyaada dominant hona chahiye
+                        let isFingerPresent = (avgRed > 50 && avgRed > (avgGreen * 1.5));
+
+                        if (isFingerPresent) {
+                            validFingerFrames++;
+                            scanStatus.innerText = "✨ Ungli detect ho rahi hai, hold steady...";
+                            scanStatus.className = "text-xs text-emerald-400 font-semibold animate-pulse";
+                        } else {
+                            scanStatus.innerText = "⚠️ Camera/Flash par ungli theek se cover karein!";
+                            scanStatus.className = "text-xs text-amber-400 font-semibold animate-pulse";
+                        }
+
+                        rawSignals.push(avgRed);
+                        frameCount++;
+
+                        liveCanvas.width = liveCanvas.clientWidth;
+                        liveCanvas.height = liveCanvas.clientHeight;
+                        liveCtx.clearRect(0, 0, liveCanvas.width, liveCanvas.height);
+                        
+                        if (rawSignals.length > 2) {
+                            let slice = rawSignals.slice(-60);
+                            let minV = Math.min(...slice);
+                            let maxV = Math.max(...slice);
+                            let range = maxV - minV || 1;
+
+                            liveCtx.strokeStyle = isFingerPresent ? "#10b981" : "#f59e0b";
+                            liveCtx.lineWidth = 2.5;
+                            liveCtx.beginPath();
+
+                            slice.forEach((val, idx) => {
+                                let x = (idx / (slice.length - 1)) * liveCanvas.width;
+                                let y = liveCanvas.height - ((val - minV) / range) * (liveCanvas.height - 20) - 10;
+                                if (idx === 0) liveCtx.moveTo(x, y);
+                                else liveCtx.lineTo(x, y);
+                            });
+                            liveCtx.stroke();
+                        }
+                    } else {
+                        stopCamera();
+                        
+                        // Relaxed threshold: 20% frames match hone par bhi scan successful ho jayega
+                        if (validFingerFrames < (frameCount * 0.2)) {
+                            alert("❌ Scan Cancelled!\nUngli camera/flash par theek se nahi rakhi gayi thi. Kripya flash aur lens ko poori tarah cover karke dobara try karein.");
+                            resetApp();
+                        } else {
+                            let actualFps = frameCount / (duration / 1000.0) || 10;
+                            stopCameraAndProcess(rawSignals, actualFps);
+                        }
+                    }
+                }, 100);
+
+            } catch (err) {
+                stopCamera();
+                alert("Camera permission error: " + err);
+                resetApp();
+            }
+        }
+
+        function stopCameraAndProcess(rawSignals, fps) {
+            document.getElementById("scan-section").classList.add("hidden");
+            document.getElementById("result-section").classList.remove("hidden");
+
+            let patientId = document.getElementById("patient-id").value || "P48291";
+            document.getElementById("disp-pid").innerText = patientId;
+
+            let baseSbp = parseFloat(document.getElementById("base-sbp").value) || 120;
+            let baseDbp = parseFloat(document.getElementById("base-dbp").value) || 80;
+            let weightGain = parseFloat(document.getElementById("weight-gain").value) || 0.0;
+            let sob = document.getElementById("sob-check").checked;
+
+            let filteredSignal = applyBandpassFilter(rawSignals, fps);
+            let hrResult = detectPeaksAndHR(filteredSignal, fps);
+
+            let signalVariance = Math.max(...filteredSignal) - Math.min(...filteredSignal);
+            let variationFactor = Math.min(Math.max(signalVariance * 0.04, -4), 6);
+            
+            let estSbp = baseSbp + variationFactor;
+            let estDbp = baseDbp + (variationFactor * 0.5);
+            let hr = hrResult.hr;
+
+            let status = "GREEN (Stable)";
+            let statusColor = "bg-emerald-500/20 text-emerald-400 border-emerald-500/50";
+            if (estSbp < 90 || estSbp > 150 || sob || weightGain >= 2.0) {
+                status = "RED ALERT (Emergency)";
+                statusColor = "bg-red-500/20 text-red-400 border-red-500/50";
+            } else if (estSbp < 100 || estSbp > 135 || weightGain >= 1.0) {
+                status = "YELLOW WARNING (Caution)";
+                statusColor = "bg-amber-500/20 text-amber-400 border-amber-500/50";
+            }
+
+            document.getElementById("res-hr").innerText = `${hr.toFixed(1)} BPM`;
+            document.getElementById("res-bp").innerText = `${estSbp.toFixed(1)} / ${estDbp.toFixed(1)} mmHg`;
+            
+            let triageBox = document.getElementById("triage-box");
+            triageBox.className = `p-3 rounded-xl text-center font-bold text-sm border ${statusColor}`;
+            triageBox.innerText = `Status: ${status}`;
+
+            saveRecord(patientId, hr, estSbp, estDbp, status);
+            renderChart(filteredSignal);
+        }
+
+        function renderChart(data) {
+            const ctx = document.getElementById('pulseChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+            
+            let maxVal = Math.max(...data);
+            let minVal = Math.min(...data);
+            let padding = (maxVal - minVal) * 0.2 || 1;
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map((_, i) => i),
+                    datasets: [{
+                        label: 'PPG Waveform',
+                        data: data,
+                        borderColor: '#10b981',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { 
+                        x: { display: false }, 
+                        y: { 
+                            display: false,
+                            min: minVal - padding,
+                            max: maxVal + padding
+                        } 
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function saveRecord(pid, hr, sbp, dbp, status) {
+            let history = JSON.parse(localStorage.getItem("bp_history") || "[]");
+            history.unshift({
+                pid: pid,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                date: new Date().toLocaleDateString(),
+                hr: typeof hr === 'number' ? hr.toFixed(1) : hr,
+                sbp: typeof sbp === 'number' ? sbp.toFixed(1) : sbp,
+                dbp: typeof dbp === 'number' ? dbp.toFixed(1) : dbp,
+                status: status
+            });
+            localStorage.setItem("bp_history", JSON.stringify(history));
+            loadHistory();
+        }
+
+        function loadHistory() {
+            let history = JSON.parse(localStorage.getItem("bp_history") || "[]");
+            let container = document.getElementById("history-list");
+            container.innerHTML = "";
+            if (history.length === 0) {
+                container.innerHTML = `<p class="text-slate-500 text-center py-2">Koi purani history nahi hai.</p>`;
+                return;
+            }
+            history.forEach(item => {
+                container.innerHTML += `
+                    <div class="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/80 flex justify-between items-center mb-2">
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <span class="bg-red-500/20 text-red-400 font-mono font-bold px-1.5 py-0.5 rounded text-[10px]">${item.pid}</span>
+                                <span class="font-bold text-slate-200">${item.sbp}/${item.dbp} mmHg</span>
+                                <span class="text-emerald-400 font-semibold">(${item.hr} BPM)</span>
+                            </div>
+                            <div class="text-[10px] text-slate-400 mt-0.5">${item.date} at ${item.time}</div>
+                        </div>
+                        <span class="text-[9px] px-2 py-1 rounded font-semibold bg-slate-900 border border-slate-700 text-slate-300 text-center">${item.status}</span>
+                    </div>
+                `;
+            });
+        }
+
+        function clearHistory() {
+            if (confirm("Clear history?")) {
+                localStorage.removeItem("bp_history");
+                loadHistory();
+            }
+        }
+
+        function resetApp() {
+            stopCamera();
+            generateRandomPatientID();
+            document.getElementById("result-section").classList.add("hidden");
+            document.getElementById("setup-section").classList.remove("hidden");
+        }
+    </script>
+</body>
+</html>
