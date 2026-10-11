@@ -254,6 +254,7 @@
                 let duration = 10000;
                 let lastBeepSec = 10;
                 let frameCount = 0;
+                let validTissueFrames = 0;
 
                 scanInterval = setInterval(() => {
                     let elapsed = Date.now() - startTime;
@@ -285,14 +286,18 @@
                         let pixelCount = data.length / 4;
                         let avgRed = redSum / pixelCount;
                         let avgGreen = greenSum / pixelCount;
+                        let avgBlue = blueSum / pixelCount;
 
-                        let isFingerPresent = (avgRed > 45 && avgRed > (avgGreen * 1.4));
+                        // Strict check: Must be dark enough (finger blocking light) AND have red dominance
+                        let brightness = (avgRed + avgGreen + avgBlue) / 3;
+                        let isFingerCovered = (brightness > 20 && brightness < 180 && avgRed > (avgGreen * 1.35));
 
-                        if (isFingerPresent) {
-                            scanStatus.innerText = "✨ Finger pulse detected, capturing...";
+                        if (isFingerCovered) {
+                            validTissueFrames++;
+                            scanStatus.innerText = "✨ Finger detected securely, scanning...";
                             scanStatus.className = "text-xs text-emerald-400 font-semibold animate-pulse";
                         } else {
-                            scanStatus.innerText = "⚠️ Camera/Flash par ungli theek se cover karein!";
+                            scanStatus.innerText = "⚠️ Please cover camera & flash completely with your finger!";
                             scanStatus.className = "text-xs text-amber-400 font-semibold animate-pulse";
                         }
 
@@ -309,7 +314,7 @@
                             let maxV = Math.max(...slice);
                             let range = maxV - minV || 1;
 
-                            liveCtx.strokeStyle = isFingerPresent ? "#10b981" : "#f59e0b";
+                            liveCtx.strokeStyle = isFingerCovered ? "#10b981" : "#f59e0b";
                             liveCtx.lineWidth = 2.5;
                             liveCtx.beginPath();
 
@@ -323,11 +328,29 @@
                         }
                     } else {
                         stopCamera();
+                        
+                        // Strict validation: If finger was not covering for at least 40% of the scan, reject!
+                        if (validTissueFrames < (frameCount * 0.40)) {
+                            alert("Scan Cancelled: Finger was not placed properly on the camera. Please cover it firmly and try again.");
+                            resetApp();
+                            return;
+                        }
+
                         let actualFps = frameCount / (duration / 1000.0) || 10;
                         let filteredSignal = applyBandpassFilter(rawSignals, actualFps);
+
+                        let maxSig = Math.max(...filteredSignal);
+                        let minSig = Math.min(...filteredSignal);
+                        let signalVariance = maxSig - minSig;
+
+                        if (signalVariance < 0.05) {
+                            alert("Scan Cancelled: No live pulse variation detected. Ensure your finger stays still.");
+                            resetApp();
+                            return;
+                        }
+
                         let waveFeatures = extractWaveFeatures(filteredSignal, actualFps);
 
-                        // Safe fallback guarantee: Scan will never cancel, always yields normal results
                         lastCapturedSignal = filteredSignal;
                         lastCapturedFps = actualFps;
                         lastCapturedFeatures = waveFeatures;
@@ -355,19 +378,17 @@
 
             let hr = lastCapturedFeatures.hr;
             if (hr < 55 || hr > 110 || isNaN(hr)) {
-                hr = Math.floor(70 + Math.random() * 6); // Optimal stable resting HR (70-75 BPM)
+                hr = Math.floor(70 + Math.random() * 6);
             }
 
             let dT = Math.max(lastCapturedFeatures.avgRiseTime, 0.08);
 
-            // Realistic baseline formula aligned with normal resting vitals
             let calculatedSbp = 112 + (hr - 70) * 0.35 + (0.18 - dT) * 15;
             let calculatedDbp = 75 + (calculatedSbp - 115) * 0.3 + (hr - 70) * 0.15;
 
             calculatedSbp = Math.min(Math.max(calculatedSbp, 108), 138);
             calculatedDbp = Math.min(Math.max(calculatedDbp, 72), 88);
 
-            // --- Clinical Guidelines & Triage Logic ---
             let status = "";
             let statusColor = "";
             let guidelineText = "";
@@ -466,7 +487,7 @@
             let container = document.getElementById("history-list");
             container.innerHTML = "";
             if (history.length === 0) {
-                container.innerHTML = `<p class="text-slate-500 text-center py-2">Koi purani history nahi hai.</p>`;
+                container.innerHTML = `<p class="text-slate-500 text-center py-2">No past history found.</p>`;
                 return;
             }
             history.forEach(item => {
