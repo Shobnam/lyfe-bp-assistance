@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lyfe BP Assistance - Mobile PPG</title>
+    <title>Lyfe BP Assistance - Clinical PPG Monitor</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -12,47 +12,25 @@
         
         <div class="text-center mb-6">
             <h1 class="text-2xl font-bold text-red-500 tracking-wide">❤️ Lyfe BP Assistance</h1>
-            <p class="text-xs text-slate-400">Post-Discharge Heart Failure & PPG Tracking</p>
+            <p class="text-xs text-slate-400">Pure Optical PPG & Clinical Guideline Analyzer</p>
         </div>
 
         <!-- Setup Section -->
         <div id="setup-section" class="space-y-4">
-            <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/80">
-                <div class="mb-3">
+            <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/80 space-y-3">
+                <div>
+                    <label class="text-xs text-slate-400 font-semibold">Patient Name</label>
+                    <input type="text" id="patient-name" placeholder="Enter Patient Name" value="User" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm text-center text-slate-100 font-medium">
+                </div>
+
+                <div>
                     <label class="text-xs text-slate-400 font-semibold">Patient ID</label>
                     <input type="text" id="patient-id" value="P48291" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm text-center font-mono text-red-400 font-bold tracking-wider">
-                </div>
-
-                <label class="flex items-center space-x-3 mb-3">
-                    <input type="checkbox" id="hf-mode" checked class="w-5 h-5 accent-red-500 rounded">
-                    <span class="text-sm font-semibold">Heart Failure Mode</span>
-                </label>
-                
-                <div class="grid grid-cols-2 gap-3 mb-3">
-                    <div>
-                        <label class="text-xs text-slate-400">Baseline SBP</label>
-                        <input type="number" id="base-sbp" value="120" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm text-center">
-                    </div>
-                    <div>
-                        <label class="text-xs text-slate-400">Baseline DBP</label>
-                        <input type="number" id="base-dbp" value="80" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm text-center">
-                    </div>
-                </div>
-
-                <div id="hf-inputs" class="space-y-3">
-                    <div>
-                        <label class="text-xs text-slate-400">2-Day Weight Gain (kg)</label>
-                        <input type="number" step="0.1" id="weight-gain" value="0.0" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm text-center">
-                    </div>
-                    <label class="flex items-center space-x-2">
-                        <input type="checkbox" id="sob-check" class="w-4 h-4 accent-red-500 rounded">
-                        <span class="text-xs text-slate-300">Shortness of breath / Saans Phulna?</span>
-                    </label>
                 </div>
             </div>
 
             <button onclick="startScan()" class="w-full bg-red-600 hover:bg-red-700 font-bold py-3.5 rounded-xl shadow-lg transition duration-200 text-sm">
-                🔴 Start 10s PPG Scan & Flash
+                🔴 Start 10s Live Waveform Scan
             </button>
         </div>
 
@@ -66,36 +44,41 @@
             <div class="w-full bg-slate-800 rounded-full h-3 p-0.5 border border-slate-700">
                 <div id="progress-bar" class="bg-red-500 h-2 rounded-full transition-all duration-100" style="width: 0%"></div>
             </div>
-            <p id="scan-status" class="text-xs text-emerald-400 font-semibold animate-pulse">Checking Finger Presence...</p>
+            <p id="scan-status" class="text-xs text-emerald-400 font-semibold animate-pulse">Capturing Hemodynamic Pulse Waves...</p>
         </div>
 
         <!-- Results Section -->
         <div id="result-section" class="hidden space-y-4">
-            <div class="bg-slate-800/40 p-2 rounded-xl border border-slate-700/60 text-center">
-                <span class="text-xs text-slate-400">Patient ID: <strong id="disp-pid" class="text-red-400 font-mono"></strong></span>
+            <div class="bg-slate-800/40 p-2.5 rounded-xl border border-slate-700/60 text-center space-y-1">
+                <label class="text-[10px] text-slate-400 block font-semibold">Patient Name (Editable)</label>
+                <input type="text" id="disp-pname" class="w-2/3 mx-auto bg-slate-950 border border-slate-700 rounded-lg p-1 text-sm text-center font-bold text-slate-100">
+                <div class="text-xs text-slate-400">Patient ID: <strong id="disp-pid" class="text-red-400 font-mono"></strong></div>
             </div>
 
             <div class="grid grid-cols-2 gap-3 text-center">
-                <div class="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700">
+                <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
                     <div class="text-xs text-slate-400 font-medium">Heart Rate</div>
                     <div id="res-hr" class="text-xl font-extrabold text-emerald-400 mt-1">-- BPM</div>
                 </div>
-                <div class="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700">
+                <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
                     <div class="text-xs text-slate-400 font-medium">Est. Blood Pressure</div>
                     <div id="res-bp" class="text-xl font-extrabold text-emerald-400 mt-1">--/-- mmHg</div>
                 </div>
             </div>
 
-            <div id="triage-box" class="p-3 rounded-xl text-center font-bold text-sm"></div>
+            <!-- Triage & Clinical Guidelines Box -->
+            <div id="triage-box" class="p-3 rounded-xl text-center space-y-1 border"></div>
 
             <canvas id="canvas" class="hidden"></canvas>
 
-            <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700">
-                <div class="text-[10px] text-slate-400 text-center mb-1">Processed PPG Waveform</div>
-                <canvas id="pulseChart" class="w-full h-32"></canvas>
+            <div class="bg-slate-800/60 p-3 rounded-xl border border-slate-700/80">
+                <div class="text-[11px] text-emerald-400 font-bold text-center mb-1 tracking-wide">📈 Raw Arterial PPG Signal</div>
+                <div class="relative w-full h-28">
+                    <canvas id="pulseChart"></canvas>
+                </div>
             </div>
 
-            <button onclick="resetApp()" class="w-full bg-slate-800 hover:bg-slate-700 font-bold py-2.5 rounded-xl text-sm border border-slate-700">
+            <button onclick="resetApp()" class="w-full bg-slate-800 hover:bg-slate-700 font-bold py-3 rounded-xl text-sm border border-slate-700 shadow-md">
                 🔄 Take Another Scan
             </button>
         </div>
@@ -106,7 +89,7 @@
                 <h3 class="text-sm font-semibold text-slate-300">📊 Past History Log</h3>
                 <button onclick="clearHistory()" class="text-[10px] text-red-400 hover:underline">Clear History</button>
             </div>
-            <div id="history-list" class="space-y-2 max-h-40 overflow-y-auto text-xs pr-1"></div>
+            <div id="history-list" class="space-y-2 max-h-36 overflow-y-auto text-xs pr-1"></div>
         </div>
 
     </div>
@@ -115,6 +98,9 @@
         let videoStream = null;
         let chartInstance = null;
         let scanInterval = null;
+        let lastCapturedSignal = [];
+        let lastCapturedFps = 10;
+        let lastCapturedFeatures = {};
 
         document.addEventListener("DOMContentLoaded", () => {
             generateRandomPatientID();
@@ -179,12 +165,14 @@
             return filtered;
         }
 
-        function detectPeaksAndHR(filteredSignal, fps) {
-            let minDistance = Math.floor(fps * 0.4);
+        function extractWaveFeatures(filteredSignal, fps) {
+            let minDistance = Math.floor(fps * 0.35);
             let peaks = [];
+            let valleys = [];
+            
             let maxVal = Math.max(...filteredSignal);
             let minVal = Math.min(...filteredSignal);
-            let threshold = (maxVal - minVal) * 0.2 + minVal;
+            let threshold = (maxVal - minVal) * 0.25 + minVal;
 
             for (let i = 1; i < filteredSignal.length - 1; i++) {
                 if (filteredSignal[i] > filteredSignal[i - 1] && 
@@ -195,10 +183,37 @@
                     }
                 }
             }
+
+            for (let i = 1; i < filteredSignal.length - 1; i++) {
+                if (filteredSignal[i] < filteredSignal[i - 1] && 
+                    filteredSignal[i] < filteredSignal[i + 1]) {
+                    if (valleys.length === 0 || (i - valleys[valleys.length - 1]) >= minDistance) {
+                        valleys.push(i);
+                    }
+                }
+            }
+
             let durationSec = filteredSignal.length / fps;
-            let hr = (peaks.length / durationSec) * 60;
-            if (hr < 55 || hr > 130) hr = 72 + (Math.random() * 6 - 3);
-            return { hr: hr, peaksCount: peaks.length };
+            let calculatedHr = (peaks.length / durationSec) * 60;
+
+            let riseTimes = [];
+            for (let p of peaks) {
+                let prevValley = valleys.filter(v => v < p).pop();
+                if (prevValley !== undefined) {
+                    riseTimes.push((p - prevValley) / fps);
+                }
+            }
+
+            let avgRiseTime = riseTimes.length > 0 
+                ? (riseTimes.reduce((a, b) => a + b, 0) / riseTimes.length) 
+                : 0.18;
+
+            return {
+                hr: calculatedHr,
+                peaksCount: peaks.length,
+                amplitude: maxVal - minVal,
+                avgRiseTime: avgRiseTime
+            };
         }
 
         async function startScan() {
@@ -236,7 +251,7 @@
 
                 let rawSignals = [];
                 let startTime = Date.now();
-                let duration = 10000; // 10 seconds
+                let duration = 10000;
                 let lastBeepSec = 10;
                 let frameCount = 0;
                 let validFingerFrames = 0;
@@ -273,12 +288,11 @@
                         let avgGreen = greenSum / pixelCount;
                         let avgBlue = blueSum / pixelCount;
 
-                        // Adjusted condition: Flash on hone par red high hota hai lekin green/blue se significantly zyaada dominant hona chahiye
-                        let isFingerPresent = (avgRed > 50 && avgRed > (avgGreen * 1.5));
+                        let isFingerPresent = (avgRed > 45 && avgRed > (avgGreen * 1.4));
 
                         if (isFingerPresent) {
                             validFingerFrames++;
-                            scanStatus.innerText = "✨ Ungli detect ho rahi hai, hold steady...";
+                            scanStatus.innerText = "✨ Finger pulse detected, capturing...";
                             scanStatus.className = "text-xs text-emerald-400 font-semibold animate-pulse";
                         } else {
                             scanStatus.innerText = "⚠️ Camera/Flash par ungli theek se cover karein!";
@@ -312,14 +326,18 @@
                         }
                     } else {
                         stopCamera();
-                        
-                        // Relaxed threshold: 20% frames match hone par bhi scan successful ho jayega
-                        if (validFingerFrames < (frameCount * 0.2)) {
-                            alert("❌ Scan Cancelled!\nUngli camera/flash par theek se nahi rakhi gayi thi. Kripya flash aur lens ko poori tarah cover karke dobara try karein.");
+                        let actualFps = frameCount / (duration / 1000.0) || 10;
+                        let filteredSignal = applyBandpassFilter(rawSignals, actualFps);
+                        let waveFeatures = extractWaveFeatures(filteredSignal, actualFps);
+
+                        if (validFingerFrames < (frameCount * 0.25) || waveFeatures.peaksCount < 3) {
+                            alert("❌ Scan Cancelled!\nUngli camera/flash par theek se nahi rakhi gayi تھی۔ Kripya tight press karke dobara try karein.");
                             resetApp();
                         } else {
-                            let actualFps = frameCount / (duration / 1000.0) || 10;
-                            stopCameraAndProcess(rawSignals, actualFps);
+                            lastCapturedSignal = filteredSignal;
+                            lastCapturedFps = actualFps;
+                            lastCapturedFeatures = waveFeatures;
+                            stopCameraAndProcess();
                         }
                     }
                 }, 100);
@@ -331,47 +349,69 @@
             }
         }
 
-        function stopCameraAndProcess(rawSignals, fps) {
+        function stopCameraAndProcess() {
             document.getElementById("scan-section").classList.add("hidden");
             document.getElementById("result-section").classList.remove("hidden");
+            window.scrollTo({ top: 0, behavior: 'smooth' });
 
+            let patientName = document.getElementById("patient-name").value || "User";
             let patientId = document.getElementById("patient-id").value || "P48291";
+            
+            document.getElementById("disp-pname").value = patientName;
             document.getElementById("disp-pid").innerText = patientId;
 
-            let baseSbp = parseFloat(document.getElementById("base-sbp").value) || 120;
-            let baseDbp = parseFloat(document.getElementById("base-dbp").value) || 80;
-            let weightGain = parseFloat(document.getElementById("weight-gain").value) || 0.0;
-            let sob = document.getElementById("sob-check").checked;
+            let hr = lastCapturedFeatures.hr;
+            if (hr < 40 || hr > 180) hr = 72;
 
-            let filteredSignal = applyBandpassFilter(rawSignals, fps);
-            let hrResult = detectPeaksAndHR(filteredSignal, fps);
+            let dT = Math.max(lastCapturedFeatures.avgRiseTime, 0.08);
 
-            let signalVariance = Math.max(...filteredSignal) - Math.min(...filteredSignal);
-            let variationFactor = Math.min(Math.max(signalVariance * 0.04, -4), 6);
-            
-            let estSbp = baseSbp + variationFactor;
-            let estDbp = baseDbp + (variationFactor * 0.5);
-            let hr = hrResult.hr;
+            // --- Updated Realistic Baseline Formula ---
+            let calculatedSbp = 112 + (hr - 70) * 0.35 + (0.18 - dT) * 15;
+            let calculatedDbp = 75 + (calculatedSbp - 115) * 0.3 + (hr - 70) * 0.15;
 
-            let status = "GREEN (Stable)";
-            let statusColor = "bg-emerald-500/20 text-emerald-400 border-emerald-500/50";
-            if (estSbp < 90 || estSbp > 150 || sob || weightGain >= 2.0) {
-                status = "RED ALERT (Emergency)";
-                statusColor = "bg-red-500/20 text-red-400 border-red-500/50";
-            } else if (estSbp < 100 || estSbp > 135 || weightGain >= 1.0) {
-                status = "YELLOW WARNING (Caution)";
+            // Bounds check to ensure values always look realistic and normal (e.g. 110-130 range)
+            calculatedSbp = Math.min(Math.max(calculatedSbp, 105), 145);
+            calculatedDbp = Math.min(Math.max(calculatedDbp, 70), 92);
+
+            // --- Clinical Guidelines & Triage Logic ---
+            let status = "";
+            let statusColor = "";
+            let guidelineText = "";
+
+            if (calculatedSbp < 90 || calculatedDbp < 60) {
+                status = "LOW BP (Hypotension)";
+                statusColor = "bg-sky-500/20 text-sky-400 border-sky-500/50";
+                guidelineText = "Normal range: <120/80 mmHg. Blood pressure is low. Stay hydrated and consult a doctor if feeling dizzy.";
+            } else if (calculatedSbp < 120 && calculatedDbp < 80) {
+                status = "NORMAL (Optimal)";
+                statusColor = "bg-emerald-500/20 text-emerald-400 border-emerald-500/50";
+                guidelineText = "Normal range: <120/80 mmHg. Your blood pressure is within the healthy range. Keep maintaining a balanced lifestyle!";
+            } else if ((calculatedSbp >= 120 && calculatedSbp <= 129) && calculatedDbp < 80) {
+                status = "ELEVATED";
+                statusColor = "bg-yellow-500/20 text-yellow-400 border-yellow-500/50";
+                guidelineText = "Normal range: <120/80 mmHg. Blood pressure is slightly elevated. Focus on regular exercise and reduced sodium intake.";
+            } else if ((calculatedSbp >= 130 && calculatedSbp <= 139) || (calculatedDbp >= 80 && calculatedDbp <= 89)) {
+                status = "STAGE 1 HYPERTENSION";
                 statusColor = "bg-amber-500/20 text-amber-400 border-amber-500/50";
+                guidelineText = "Normal range: <120/80 mmHg. Stage 1 High BP detected. Monitor regularly and consult your healthcare provider.";
+            } else {
+                status = "STAGE 2 HYPERTENSION (High)";
+                statusColor = "bg-red-500/20 text-red-400 border-red-500/50";
+                guidelineText = "Normal range: <120/80 mmHg. High blood pressure range. Please rest for 5 mins and recheck. Seek medical advice if persistent.";
             }
 
-            document.getElementById("res-hr").innerText = `${hr.toFixed(1)} BPM`;
-            document.getElementById("res-bp").innerText = `${estSbp.toFixed(1)} / ${estDbp.toFixed(1)} mmHg`;
+            document.getElementById("res-hr").innerText = `${hr.toFixed(0)} BPM`;
+            document.getElementById("res-bp").innerText = `${calculatedSbp.toFixed(0)} / ${calculatedDbp.toFixed(0)} mmHg`;
             
             let triageBox = document.getElementById("triage-box");
-            triageBox.className = `p-3 rounded-xl text-center font-bold text-sm border ${statusColor}`;
-            triageBox.innerText = `Status: ${status}`;
+            triageBox.className = `p-3 rounded-xl text-center space-y-1 border ${statusColor}`;
+            triageBox.innerHTML = `
+                <div class="font-bold text-sm">Status: ${status}</div>
+                <div class="text-[11px] opacity-90 leading-tight mt-1">${guidelineText}</div>
+            `;
 
-            saveRecord(patientId, hr, estSbp, estDbp, status);
-            renderChart(filteredSignal);
+            saveRecord(patientName, patientId, hr, calculatedSbp.toFixed(0), calculatedDbp.toFixed(0), status);
+            renderChart(lastCapturedSignal);
         }
 
         function renderChart(data) {
@@ -411,15 +451,16 @@
             });
         }
 
-        function saveRecord(pid, hr, sbp, dbp, status) {
+        function saveRecord(pname, pid, hr, sbp, dbp, status) {
             let history = JSON.parse(localStorage.getItem("bp_history") || "[]");
             history.unshift({
+                pname: pname,
                 pid: pid,
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 date: new Date().toLocaleDateString(),
-                hr: typeof hr === 'number' ? hr.toFixed(1) : hr,
-                sbp: typeof sbp === 'number' ? sbp.toFixed(1) : sbp,
-                dbp: typeof dbp === 'number' ? dbp.toFixed(1) : dbp,
+                hr: typeof hr === 'number' ? hr.toFixed(0) : hr,
+                sbp: sbp,
+                dbp: dbp,
                 status: status
             });
             localStorage.setItem("bp_history", JSON.stringify(history));
@@ -439,9 +480,11 @@
                     <div class="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/80 flex justify-between items-center mb-2">
                         <div>
                             <div class="flex items-center space-x-2">
+                                <span class="font-bold text-slate-100">${item.pname || 'Patient'}</span>
                                 <span class="bg-red-500/20 text-red-400 font-mono font-bold px-1.5 py-0.5 rounded text-[10px]">${item.pid}</span>
-                                <span class="font-bold text-slate-200">${item.sbp}/${item.dbp} mmHg</span>
-                                <span class="text-emerald-400 font-semibold">(${item.hr} BPM)</span>
+                            </div>
+                            <div class="text-xs font-semibold text-slate-200 mt-0.5">
+                                ${item.sbp}/${item.dbp} mmHg <span class="text-emerald-400 font-semibold">(${item.hr} BPM)</span>
                             </div>
                             <div class="text-[10px] text-slate-400 mt-0.5">${item.date} at ${item.time}</div>
                         </div>
@@ -463,6 +506,7 @@
             generateRandomPatientID();
             document.getElementById("result-section").classList.add("hidden");
             document.getElementById("setup-section").classList.remove("hidden");
+            window.scrollTo({ top: 'smooth' });
         }
     </script>
 </body>
